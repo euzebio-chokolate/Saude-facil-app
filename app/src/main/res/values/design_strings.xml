@@ -1,0 +1,29 @@
+<resources>
+    <string name="home_eyebrow">ATENDIMENTO RÁPIDO</string>
+    <string name="home_greeting">Como podemos ajudar?</string>
+    <string name="emergency_section">TELEFONES DE EMERGÊNCIA E APOIO</string>
+    <string name="actions_section">AÇÕES RÁPIDAS</string>
+    <string name="samu_name">SAMU</string>
+    <string name="samu_description">Urgência médica</string>
+    <string name="samu_number">192</string>
+    <string name="fire_name">Bombeiros</string>
+    <string name="fire_description">Resgate / Incêndio</string>
+    <string name="fire_number">193</string>
+    <string name="police_name">Polícia</string>
+    <string name="police_description">Segurança</string>
+    <string name="police_number">190</string>
+    <string name="cvv_name">CVV</string>
+    <string name="cvv_description">Apoio emocional</string>
+    <string name="cvv_number">188</string>
+    <string name="assessment_label">Avaliar sintomas</string>
+    <string name="assessment_soon">Em breve</string>
+    <string name="units_short">Hospitais e postos próximos</string>
+    <string name="aid_short">Informações de emergência</string>
+    <string name="map_short">Localização das unidades</string>
+    <string name="search_preview">Pesquise por nome ou bairro…</string>
+    <string name="units_pending">As unidades de saúde estarão disponíveis aqui em breve.</string>
+    <string name="map_pending">O mapa de unidades estará disponível aqui em breve.</string>
+    <string name="aid_pending">Os guias de primeiros socorros estarão disponíveis aqui em breve.</string>
+    <string name="about_summary">Informação de saúde de um jeito simples, para ajudar você a encontrar orientação e serviços.</string>
+    <string name="medical_label">INFORMAÇÃO IMPORTANTE</string>
+</resources>

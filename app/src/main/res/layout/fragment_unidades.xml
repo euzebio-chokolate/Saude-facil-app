@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="@dimen/screen_padding">
+        <TextView android:id="@+id/text_title" style="@style/CardTitle" android:text="@string/unidades_title" android:textSize="@dimen/title_size" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="@dimen/card_height" android:layout_marginTop="@dimen/spacing_medium" android:padding="@dimen/card_padding" android:background="@drawable/bg_surface" android:gravity="center_vertical" android:orientation="horizontal">
+            <ImageView android:layout_width="@dimen/icon_size" android:layout_height="@dimen/icon_size" android:src="@drawable/ic_search" android:importantForAccessibility="no"   />
+            <TextView style="@style/CardCaption" android:layout_marginStart="@dimen/spacing_medium" android:text="@string/search_preview" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"  android:layout_marginTop="@dimen/spacing_medium" android:padding="@dimen/spacing_large" android:background="@drawable/bg_surface" android:orientation="vertical" android:gravity="center">
+            <ImageView android:layout_width="@dimen/icon_box" android:layout_height="@dimen/icon_box" android:src="@drawable/ic_hospital" android:importantForAccessibility="no" android:padding="@dimen/spacing_small" android:background="@drawable/bg_icon"  />
+            <TextView android:id="@+id/text_description" style="@style/CardCaption" android:text="@string/units_pending" android:textSize="@dimen/body_size" android:gravity="center" android:layout_marginTop="@dimen/spacing_medium" />
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

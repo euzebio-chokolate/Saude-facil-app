@@ -1,3 +1,19 @@
 <resources>
-    <string name="app_name">N2DMII</string>
+    <string name="app_name">Saúde Fácil</string>
+    <string name="nav_inicio">Início</string>
+    <string name="nav_unidades">Unidades</string>
+    <string name="nav_mapa">Mapa</string>
+    <string name="nav_socorros">Socorros</string>
+    <string name="nav_sobre">Sobre</string>
+    <string name="home_description">Acesso rápido a informações de saúde e emergência.</string>
+    <string name="medical_disclaimer">Este aplicativo não substitui avaliação médica profissional. As informações são educativas e não representam diagnóstico.</string>
+    <string name="stage_one_notice">Etapa 1: navegação inicial. Os atalhos e as funcionalidades serão adicionados nas próximas etapas.</string>
+    <string name="unidades_title">Unidades de saúde</string>
+    <string name="unidades_description">A pesquisa e a lista de hospitais, UPAs e postos de saúde serão implementadas na etapa de unidades.</string>
+    <string name="mapa_title">Mapa de unidades</string>
+    <string name="mapa_description">O mapa, os marcadores e a solicitação de localização serão implementados na etapa de mapas.</string>
+    <string name="socorros_title">Primeiros socorros</string>
+    <string name="socorros_description">As categorias e as instruções serão implementadas na etapa de primeiros socorros.</string>
+    <string name="sobre_title">Sobre o Saúde Fácil</string>
+    <string name="sobre_description">Aplicativo Android nativo desenvolvido em Java, com interface em Views e layouts XML. As informações completas serão adicionadas na etapa Sobre.</string>
 </resources>

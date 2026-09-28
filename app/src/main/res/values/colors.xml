@@ -1,5 +1,20 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="primary">#168F90</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="background">#F2F3F5</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="text_primary">#263140</color>
+    <color name="text_secondary">#626C7D</color>
+    <color name="warning_background">#FFF6DF</color>
+    <color name="warning_text">#654C16</color>
+    <color name="outline">#E5E7EB</color>
+    <color name="primary_soft">#E4F3F3</color>
+    <color name="header_background">#209697</color>
+    <color name="header_text">#FFFFFF</color>
+    <color name="emergency_samu">#D93830</color>
+    <color name="emergency_fire">#BC5100</color>
+    <color name="emergency_police">#2668D7</color>
+    <color name="emergency_cvv">#8840CF</color>
+    <color name="emergency_text">#FFFFFF</color>
+    <color name="icon_overlay">#26FFFFFF</color>
 </resources>
