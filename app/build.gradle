@@ -2,6 +2,12 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+/* Chave opcional do OpenRouteService, lida do local.properties (fora do Git). Sem ela, usa o OSRM público. */
+def propriedadesLocais = new Properties()
+def arquivoLocal = rootProject.file('local.properties')
+if (arquivoLocal.exists()) arquivoLocal.withInputStream { propriedadesLocais.load(it) }
+def chaveOrs = propriedadesLocais.getProperty('ORS_API_KEY', '')
+
 android {
     namespace = 'com.example.n2dmii'
     compileSdk = 37
@@ -12,6 +18,7 @@ android {
         versionCode = 1
         versionName = '1.0'
         testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
+        buildConfigField 'String', 'ORS_API_KEY', "\"${chaveOrs}\""
     }
     buildTypes {
         release {

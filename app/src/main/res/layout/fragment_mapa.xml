@@ -43,6 +43,18 @@
                 android:textSize="@dimen/body_size" />
             <TextView android:id="@+id/map_selected_details" style="@style/CardCaption"
                 android:layout_marginTop="@dimen/unit_small_spacing" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="@dimen/unit_small_spacing">
+                <Button android:id="@+id/map_route"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="@string/map_route"
+                    android:textAllCaps="false" android:textSize="@dimen/caption_size" />
+                <Button android:id="@+id/map_open_external"
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="@dimen/spacing_small"
+                    android:text="@string/map_open_external" android:textAllCaps="false"
+                    android:textSize="@dimen/caption_size" />
+            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

@@ -7,12 +7,16 @@ import android.content.Intent;
 import android.content.ActivityNotFoundException;
 import android.net.Uri;
 import android.location.Criteria;
+import android.location.Location;
 import android.location.LocationManager;
 import android.graphics.RectF;
 import android.graphics.PointF;
+import android.os.SystemClock;
+import androidx.core.location.LocationListenerCompat;
 import androidx.core.location.LocationManagerCompat;
-import androidx.core.os.CancellationSignal;
+import androidx.core.location.LocationRequestCompat;
 import com.example.n2dmii.utils.MapaConfig;
+import com.example.n2dmii.utils.Rotas;
 import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.MapLibreMap;
 import org.maplibre.android.maps.Style;
@@ -22,10 +26,13 @@ import org.maplibre.android.geometry.LatLng;
 import org.maplibre.android.geometry.LatLngBounds;
 import org.maplibre.android.style.sources.GeoJsonSource;
 import org.maplibre.android.style.layers.CircleLayer;
+import org.maplibre.android.style.layers.LineLayer;
+import org.maplibre.android.style.layers.Property;
 import org.maplibre.android.style.layers.BackgroundLayer;
 import org.maplibre.android.style.expressions.Expression;
 import org.maplibre.geojson.Feature;
 import org.maplibre.geojson.FeatureCollection;
+import org.maplibre.geojson.LineString;
 import org.maplibre.geojson.Point;
 import static org.maplibre.android.style.layers.PropertyFactory.*;
 import android.content.pm.PackageManager;
@@ -48,8 +55,10 @@ import androidx.fragment.app.Fragment;
 import com.example.n2dmii.R;
 import com.example.n2dmii.database.DatabaseHelper;
 import com.example.n2dmii.models.UnidadeSaude;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -64,6 +73,14 @@ public class MapaFragment extends Fragment {
     private static final String CAMADA = "pontos";
     private static final String DESTAQUE = "destaque";
     private static final String ID = "unidade_id";
+    private static final String FONTE_ROTA = "rota";
+    private static final String CAMADA_ROTA = "linha_rota";
+    /* Distância, em metros, a partir da qual a pessoa é considerada fora da rota. */
+    private static final double DESVIO_MAXIMO = 60;
+    /* Intervalo mínimo entre recálculos, para não sobrecarregar o serviço de rotas. */
+    private static final long INTERVALO_RECALCULO = 20_000;
+    /* Posição anterior mais antiga que isto não é usada como ponto de partida. */
+    private static final long IDADE_MAXIMA_POSICAO = 120_000;
     private final Handler principal = new Handler(Looper.getMainLooper());
     private long unidadeSelecionada = TODAS_UNIDADES;
     private CameraPosition cameraSalva;
@@ -71,16 +88,23 @@ public class MapaFragment extends Fragment {
     private Spinner seletor;
     private TextView status, nome, detalhes;
     private View cartao, areaMapa;
-    private Button localizacao;
+    private Button localizacao, botaoRota;
     private ExecutorService executor;
-    private CancellationSignal consultaLocalizacao;
+    private LocationListenerCompat ouvinte;
+    private boolean acompanhando, centralizar;
+    private Point posicaoAtual;
+    private List<Point> rotaAtual;
+    private boolean rotaPendente, calculandoRota;
+    private int pedidoRota;
+    private long ultimoCalculo;
     private final ActivityResultLauncher<String[]> permissoes = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), resultado -> {
                 /* A recusa não bloqueia a consulta às unidades nem seus marcadores. */
                 if (getView() == null) return;
                 if (temPermissaoLocalizacao()) {
-                    localizarUsuario();
+                    iniciarAcompanhamento();
                 } else {
+                    if (rotaPendente) limparRota();
                     mensagem(R.string.map_location_denied);
                 }
             });
@@ -122,9 +146,16 @@ public class MapaFragment extends Fragment {
         cartao = view.findViewById(R.id.map_selected_card);
         areaMapa = view.findViewById(R.id.map_container);
         localizacao = view.findViewById(R.id.map_my_location);
+        botaoRota = view.findViewById(R.id.map_route);
         localizacao.setEnabled(false);
+        botaoRota.setEnabled(false);
         view.findViewById(R.id.map_show_all).setOnClickListener(v -> selecionar(TODAS_UNIDADES));
-        localizacao.setOnClickListener(v -> solicitarLocalizacao());
+        localizacao.setOnClickListener(v -> {
+            if (acompanhando) pararAcompanhamento();
+            else solicitarLocalizacao();
+        });
+        botaoRota.setOnClickListener(v -> alternarRota());
+        view.findViewById(R.id.map_open_external).setOnClickListener(v -> abrirNoAppDeMapas());
         mapView = view.findViewById(R.id.map_container);
         mapView.onCreate(estado);
         view.findViewById(R.id.map_attribution).setOnClickListener(v -> abrirCreditos());
@@ -161,6 +192,13 @@ public class MapaFragment extends Fragment {
                 estilo = novoEstilo;
                 estilo.addLayerBelow(new BackgroundLayer("fundo").withProperties(
                         backgroundColor(ContextCompat.getColor(requireContext(), R.color.background))), "osm");
+                estilo.addSource(new GeoJsonSource(FONTE_ROTA, FeatureCollection.fromFeatures(new Feature[0])));
+                estilo.addLayer(new LineLayer("contorno_rota", FONTE_ROTA).withProperties(
+                        lineColor(ContextCompat.getColor(requireContext(), R.color.map_point_outline)),
+                        lineWidth(9f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND)));
+                estilo.addLayer(new LineLayer(CAMADA_ROTA, FONTE_ROTA).withProperties(
+                        lineColor(ContextCompat.getColor(requireContext(), R.color.map_route_color)),
+                        lineWidth(5f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND)));
                 estilo.addSource(new GeoJsonSource(FONTE, FeatureCollection.fromFeatures(new Feature[0])));
                 estilo.addLayer(new CircleLayer(CAMADA, FONTE).withProperties(
                         circleColor(ContextCompat.getColor(requireContext(), R.color.map_unit_color)),
@@ -178,6 +216,7 @@ public class MapaFragment extends Fragment {
                         circleRadius(7f), circleStrokeWidth(3f),
                         circleStrokeColor(ContextCompat.getColor(requireContext(), R.color.map_point_outline))));
                 localizacao.setEnabled(true);
+                botaoRota.setEnabled(true);
                 status.setText(R.string.map_explore_hint);
                 desenharMarcadores();
             });
@@ -262,6 +301,7 @@ public class MapaFragment extends Fragment {
 
     /* Sincroniza seletor, cartão e marcador; permite trocar de unidade sem sair do mapa. */
     private void selecionar(long id) {
+        if (id != unidadeSelecionada) limparRota();
         unidadeSelecionada = id;
         cameraSalva = null;
         int posicao = 0;
@@ -274,18 +314,22 @@ public class MapaFragment extends Fragment {
         posicionarCamera();
     }
 
+    /* Retorna a unidade em foco, ou null quando todas estão sendo exibidas. */
+    @Nullable
+    private UnidadeSaude unidadeAtual() {
+        for (UnidadeSaude unidade : unidades) {
+            if (unidade.getId() == unidadeSelecionada) return unidade;
+        }
+        return null;
+    }
+
     /* Exibe nome, endereço e horário da unidade em foco. */
     private void atualizarCartao() {
-        cartao.setVisibility(View.GONE);
-        for (UnidadeSaude unidade : unidades) {
-            if (unidade.getId() == unidadeSelecionada) {
-                nome.setText(unidade.getNome());
-                detalhes.setText(getString(R.string.map_unit_details,
-                        unidade.getEndereco(), unidade.getHora()));
-                cartao.setVisibility(View.VISIBLE);
-                break;
-            }
-        }
+        UnidadeSaude unidade = unidadeAtual();
+        cartao.setVisibility(unidade == null ? View.GONE : View.VISIBLE);
+        if (unidade == null) return;
+        nome.setText(unidade.getNome());
+        detalhes.setText(getString(R.string.map_unit_details, unidade.getEndereco(), unidade.getHora()));
     }
 
     /* Destaca a unidade escolhida por cor e tamanho, mantendo seu nome no cartão acessível. */
@@ -308,16 +352,15 @@ public class MapaFragment extends Fragment {
                 cameraSalva = null;
                 return;
             }
-            for (UnidadeSaude unidade : unidades) {
-                if (unidade.getId() == unidadeSelecionada) {
-                    mapa.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                            new LatLng(unidade.getLatitude(), unidade.getLongitude()), 15));
-                    return;
-                }
+            UnidadeSaude unidade = unidadeAtual();
+            if (unidade != null) {
+                mapa.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                        new LatLng(unidade.getLatitude(), unidade.getLongitude()), 15));
+                return;
             }
             LatLngBounds.Builder limites = new LatLngBounds.Builder();
-            for (UnidadeSaude unidade : unidades) {
-                limites.include(new LatLng(unidade.getLatitude(), unidade.getLongitude()));
+            for (UnidadeSaude item : unidades) {
+                limites.include(new LatLng(item.getLatitude(), item.getLongitude()));
             }
             mapa.moveCamera(CameraUpdateFactory.newLatLngBounds(limites.build(),
                     getResources().getDimensionPixelSize(R.dimen.map_bounds_padding)));
@@ -333,21 +376,47 @@ public class MapaFragment extends Fragment {
                 Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED);
     }
 
-    /* Solicita as duas permissões somente após o toque em Minha localização. */
+    /* Solicita as duas permissões somente após o toque em Minha localização ou Traçar rota. */
     private void solicitarLocalizacao() {
-        if (temPermissaoLocalizacao()) localizarUsuario();
+        if (temPermissaoLocalizacao()) iniciarAcompanhamento();
         else permissoes.launch(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION});
     }
 
-    /* Obtém a posição pelo Android, sem depender do Google Play Services. */
+    /* Liga o acompanhamento contínuo; a câmera vai até a pessoa na primeira posição recebida. */
+    private void iniciarAcompanhamento() {
+        if (estilo == null) return;
+        boolean aguardandoRota = rotaPendente;
+        centralizar = !aguardandoRota;
+        if (!aguardandoRota) status.setText(R.string.map_following);
+        if (!registrarOuvinte()) {
+            if (rotaPendente) limparRota();
+            status.setText(R.string.map_explore_hint);
+            return;
+        }
+        acompanhando = true;
+        localizacao.setText(R.string.map_stop_following);
+    }
+
+    /* Desliga o GPS, remove o ponto azul e mantém uma rota já desenhada sem recálculo. */
+    private void pararAcompanhamento() {
+        acompanhando = false;
+        removerOuvinte();
+        posicaoAtual = null;
+        if (rotaPendente) limparRota();
+        if (localizacao != null) localizacao.setText(R.string.map_my_location);
+        if (estilo != null) {
+            GeoJsonSource usuario = estilo.getSourceAs("usuario");
+            if (usuario != null) usuario.setGeoJson(FeatureCollection.fromFeatures(new Feature[0]));
+        }
+        if (status != null && rotaAtual == null) status.setText(R.string.map_explore_hint);
+    }
+
+    /* Recebe atualizações do LocationManager do Android, sem depender do Google Play Services. */
     @SuppressLint("MissingPermission")
-    private void localizarUsuario() {
-        if (!temPermissaoLocalizacao() || estilo == null) return;
-        if (consultaLocalizacao != null) consultaLocalizacao.cancel();
-        consultaLocalizacao = new CancellationSignal();
-        localizacao.setEnabled(false);
-        View viewOriginal = getView();
+    private boolean registrarOuvinte() {
+        if (!temPermissaoLocalizacao()) return false;
+        removerOuvinte();
         LocationManager manager = (LocationManager) requireContext().getSystemService(Context.LOCATION_SERVICE);
         boolean precisa = ContextCompat.checkSelfPermission(requireContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
@@ -355,39 +424,184 @@ public class MapaFragment extends Fragment {
         criterios.setAccuracy(precisa ? Criteria.ACCURACY_FINE : Criteria.ACCURACY_COARSE);
         try {
             String provedor = manager.getBestProvider(criterios, true);
-            if (provedor == null) {
-                localizacao.setEnabled(true);
+            if (provedor == null || !LocationManagerCompat.isLocationEnabled(manager)) {
                 mensagem(R.string.map_location_unavailable);
-                return;
+                return false;
             }
-            LocationManagerCompat.getCurrentLocation(manager, provedor, consultaLocalizacao,
-                    ContextCompat.getMainExecutor(requireContext()), location -> {
-                        if (getView() != viewOriginal || estilo == null) return;
-                        localizacao.setEnabled(true);
-                        if (location == null) {
-                            mensagem(R.string.map_location_unavailable);
-                            return;
-                        }
-                        GeoJsonSource usuario = estilo.getSourceAs("usuario");
-                        if (usuario != null) usuario.setGeoJson(Feature.fromGeometry(
-                                Point.fromLngLat(location.getLongitude(), location.getLatitude())));
-                        mapa.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                                new LatLng(location.getLatitude(), location.getLongitude()), 14));
-                    });
+            LocationRequestCompat pedido = new LocationRequestCompat.Builder(2_000)
+                    .setMinUpdateDistanceMeters(5)
+                    .setQuality(precisa ? LocationRequestCompat.QUALITY_HIGH_ACCURACY
+                            : LocationRequestCompat.QUALITY_BALANCED_POWER_ACCURACY)
+                    .build();
+            View viewOriginal = getView();
+            ouvinte = location -> {
+                if (getView() == viewOriginal) atualizarPosicao(location);
+            };
+            LocationManagerCompat.requestLocationUpdates(manager, provedor, pedido,
+                    ContextCompat.getMainExecutor(requireContext()), ouvinte);
+            Location ultima = manager.getLastKnownLocation(provedor);
+            if (ultima != null && SystemClock.elapsedRealtime() - ultima.getElapsedRealtimeNanos() / 1_000_000
+                    < IDADE_MAXIMA_POSICAO) {
+                atualizarPosicao(ultima);
+            }
+            return true;
         } catch (SecurityException erro) {
-            localizacao.setEnabled(true);
+            removerOuvinte();
             mensagem(R.string.map_location_denied);
         } catch (IllegalArgumentException erro) {
-            localizacao.setEnabled(true);
+            removerOuvinte();
             mensagem(R.string.map_location_unavailable);
+        }
+        return false;
+    }
+
+    /* Interrompe as atualizações de posição, se houver. */
+    private void removerOuvinte() {
+        Context context = getContext();
+        if (ouvinte != null && context != null) {
+            LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            LocationManagerCompat.removeUpdates(manager, ouvinte);
+        }
+        ouvinte = null;
+    }
+
+    /* Move o ponto azul, inicia uma rota aguardada e recalcula se a pessoa sair do trajeto. */
+    private void atualizarPosicao(Location location) {
+        if (estilo == null || mapa == null) return;
+        Point ponto = Point.fromLngLat(location.getLongitude(), location.getLatitude());
+        posicaoAtual = ponto;
+        GeoJsonSource usuario = estilo.getSourceAs("usuario");
+        if (usuario != null) usuario.setGeoJson(Feature.fromGeometry(ponto));
+        if (centralizar) {
+            centralizar = false;
+            mapa.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(location.getLatitude(), location.getLongitude()), 15));
+        }
+        if (rotaPendente) {
+            rotaPendente = false;
+            calcularRota(true);
+        } else if (rotaAtual != null && !calculandoRota
+                && (!location.hasAccuracy() || location.getAccuracy() <= DESVIO_MAXIMO)
+                && SystemClock.elapsedRealtime() - ultimoCalculo > INTERVALO_RECALCULO
+                && Rotas.distanciaAteRota(ponto, rotaAtual) > DESVIO_MAXIMO) {
+            status.setText(R.string.map_route_recalculating);
+            calcularRota(false);
         }
     }
 
-    /* Encaminha a entrada em primeiro plano ao ciclo de vida da MapView. */
+    /* Traça a rota até a unidade em foco, pedindo a localização se ainda não houver; se já existe, limpa. */
+    private void alternarRota() {
+        if (rotaAtual != null || rotaPendente || calculandoRota) {
+            limparRota();
+            return;
+        }
+        if (unidadeAtual() == null) return;
+        botaoRota.setText(R.string.map_route_clear);
+        if (acompanhando && posicaoAtual != null) {
+            calcularRota(true);
+        } else {
+            rotaPendente = true;
+            status.setText(R.string.map_route_waiting);
+            if (!acompanhando) solicitarLocalizacao();
+        }
+    }
+
+    /* Consulta o serviço de rotas fora da thread principal; respostas antigas são descartadas. */
+    private void calcularRota(boolean enquadrar) {
+        UnidadeSaude destino = unidadeAtual();
+        if (destino == null || posicaoAtual == null || executor == null) return;
+        int pedido = ++pedidoRota;
+        calculandoRota = true;
+        ultimoCalculo = SystemClock.elapsedRealtime();
+        if (enquadrar) status.setText(R.string.map_route_loading);
+        Point origem = posicaoAtual;
+        Point fim = Point.fromLngLat(destino.getLongitude(), destino.getLatitude());
+        View viewOriginal = getView();
+        executor.execute(() -> {
+            try {
+                Rotas.Rota rota = Rotas.calcular(origem, fim);
+                principal.post(() -> {
+                    if (getView() != viewOriginal || pedido != pedidoRota) return;
+                    calculandoRota = false;
+                    mostrarRota(rota, enquadrar);
+                });
+            } catch (IOException erro) {
+                principal.post(() -> {
+                    if (getView() != viewOriginal || pedido != pedidoRota) return;
+                    calculandoRota = false;
+                    if (rotaAtual == null) limparRota();
+                    status.setText(R.string.map_route_error);
+                });
+            }
+        });
+    }
+
+    /* Desenha o trajeto abaixo dos marcadores e informa distância e tempo estimado. */
+    private void mostrarRota(Rotas.Rota rota, boolean enquadrar) {
+        if (estilo == null || mapa == null) return;
+        rotaAtual = rota.pontos;
+        GeoJsonSource fonte = estilo.getSourceAs(FONTE_ROTA);
+        if (fonte != null) fonte.setGeoJson(LineString.fromLngLats(rota.pontos));
+        botaoRota.setText(R.string.map_route_clear);
+        status.setText(getString(R.string.map_route_summary,
+                formatarDistancia(rota.distancia), formatarDuracao(rota.duracao)));
+        if (!enquadrar) return;
+        LatLngBounds.Builder limites = new LatLngBounds.Builder();
+        for (Point ponto : rota.pontos) limites.include(new LatLng(ponto.latitude(), ponto.longitude()));
+        mapa.animateCamera(CameraUpdateFactory.newLatLngBounds(limites.build(),
+                getResources().getDimensionPixelSize(R.dimen.map_bounds_padding)));
+    }
+
+    /* Remove o trajeto e cancela cálculos em andamento. */
+    private void limparRota() {
+        boolean havia = rotaAtual != null || rotaPendente || calculandoRota;
+        pedidoRota++;
+        rotaAtual = null;
+        rotaPendente = false;
+        calculandoRota = false;
+        if (botaoRota != null) botaoRota.setText(R.string.map_route);
+        if (estilo != null) {
+            GeoJsonSource fonte = estilo.getSourceAs(FONTE_ROTA);
+            if (fonte != null) fonte.setGeoJson(FeatureCollection.fromFeatures(new Feature[0]));
+        }
+        if (havia && status != null) {
+            status.setText(acompanhando ? R.string.map_following : R.string.map_explore_hint);
+        }
+    }
+
+    /* 850 m ou 3,2 km, conforme o idioma do aparelho. */
+    private static String formatarDistancia(double metros) {
+        if (metros < 1000) return Math.round(metros) + " m";
+        return String.format(Locale.getDefault(), "%.1f km", metros / 1000);
+    }
+
+    /* 12 min ou 1 h 05 min. */
+    private static String formatarDuracao(double segundos) {
+        long minutos = Math.max(1, Math.round(segundos / 60));
+        if (minutos < 60) return minutos + " min";
+        return String.format(Locale.getDefault(), "%d h %02d min", minutos / 60, minutos % 60);
+    }
+
+    /* Entrega o destino ao app de mapas instalado (Google Maps, Waze etc.) para navegação por voz. */
+    private void abrirNoAppDeMapas() {
+        UnidadeSaude unidade = unidadeAtual();
+        if (unidade == null) return;
+        Uri destino = Uri.parse(String.format(Locale.US, "geo:%.6f,%.6f?q=%.6f,%.6f(%s)",
+                unidade.getLatitude(), unidade.getLongitude(),
+                unidade.getLatitude(), unidade.getLongitude(), Uri.encode(unidade.getNome())));
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, destino));
+        } catch (ActivityNotFoundException erro) {
+            mensagem(R.string.map_external_unavailable);
+        }
+    }
+
+    /* Encaminha a entrada em primeiro plano ao ciclo de vida da MapView e retoma o acompanhamento. */
     @Override
     public void onStart() {
         super.onStart();
         if (mapView != null) mapView.onStart();
+        if (acompanhando && estilo != null && !registrarOuvinte()) pararAcompanhamento();
     }
 
     /* Retoma a renderização e remove a posição se a permissão tiver sido revogada. */
@@ -396,10 +610,7 @@ public class MapaFragment extends Fragment {
         super.onResume();
         if (mapView != null) mapView.onResume();
         if (localizacao != null) localizacao.setEnabled(estilo != null);
-        if (estilo != null && !temPermissaoLocalizacao()) {
-            GeoJsonSource usuario = estilo.getSourceAs("usuario");
-            if (usuario != null) usuario.setGeoJson(FeatureCollection.fromFeatures(new Feature[0]));
-        }
+        if (acompanhando && !temPermissaoLocalizacao()) pararAcompanhamento();
     }
 
     /* Suspende a renderização quando a tela deixa de estar ativa. */
@@ -409,10 +620,10 @@ public class MapaFragment extends Fragment {
         super.onPause();
     }
 
-    /* Cancela localização e interrompe o mapa sem serviços em segundo plano. */
+    /* Desliga o GPS e interrompe o mapa, sem serviços em segundo plano. */
     @Override
     public void onStop() {
-        if (consultaLocalizacao != null) consultaLocalizacao.cancel();
+        removerOuvinte();
         if (mapView != null) mapView.onStop();
         super.onStop();
     }
@@ -442,7 +653,13 @@ public class MapaFragment extends Fragment {
     @Override
     public void onDestroyView() {
         if (executor != null) executor.shutdown();
-        if (consultaLocalizacao != null) consultaLocalizacao.cancel();
+        removerOuvinte();
+        acompanhando = false;
+        posicaoAtual = null;
+        rotaAtual = null;
+        rotaPendente = false;
+        calculandoRota = false;
+        pedidoRota++;
         if (mapView != null) mapView.onDestroy();
         mapView = null;
         estilo = null;
@@ -454,6 +671,7 @@ public class MapaFragment extends Fragment {
         cartao = null;
         areaMapa = null;
         localizacao = null;
+        botaoRota = null;
         unidades.clear();
         super.onDestroyView();
     }

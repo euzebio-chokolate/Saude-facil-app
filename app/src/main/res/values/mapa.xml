@@ -19,4 +19,16 @@
     <string name="map_location_unavailable">Não foi possível obter sua localização. Verifique a localização do aparelho e tente novamente.</string>
     <dimen name="map_bounds_padding">40dp</dimen>
     <dimen name="map_details_max_height">132dp</dimen>
+    <color name="map_route_color">#2668D7</color>
+    <string name="map_following">Acompanhando sua localização em tempo real.</string>
+    <string name="map_stop_following">Parar de acompanhar</string>
+    <string name="map_route">Traçar rota</string>
+    <string name="map_route_clear">Limpar rota</string>
+    <string name="map_open_external">Abrir no app de mapas</string>
+    <string name="map_route_waiting">Aguardando sua localização para traçar a rota…</string>
+    <string name="map_route_loading">Calculando rota…</string>
+    <string name="map_route_summary">Rota de carro: %1$s · cerca de %2$s</string>
+    <string name="map_route_recalculating">Você saiu da rota. Recalculando…</string>
+    <string name="map_route_error">Não foi possível calcular a rota. Verifique a internet ou use Abrir no app de mapas.</string>
+    <string name="map_external_unavailable">Nenhum aplicativo de mapas encontrado no aparelho.</string>
 </resources>
