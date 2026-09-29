@@ -1,0 +1,16 @@
+<resources>
+    <string name="unit_search_hint">Pesquise por nome ou bairro…</string>
+    <string name="unit_view_map">Ver</string>
+    <string name="unit_view_map_description">Ver %1$s no mapa</string>
+    <string name="unit_loading">Carregando unidades…</string>
+    <string name="unit_load_error">Não foi possível carregar as unidades. Abra esta aba novamente para tentar.</string>
+    <string name="unit_empty">Nenhuma unidade encontrada.</string>
+    <string name="unit_no_map">Nenhum aplicativo de mapas disponível neste dispositivo.</string>
+    <string name="unit_no_dialer">Nenhum discador disponível neste dispositivo.</string>
+    <string name="unit_reference_notice">Dados de referência. Confirme endereço e horário com a unidade antes de se deslocar.</string>
+    <color name="unit_hospital_background">#FDE8E6</color>
+    <color name="unit_hospital_text">#AC2C25</color>
+    <dimen name="unit_touch_target">48dp</dimen>
+    <dimen name="unit_small_spacing">4dp</dimen>
+    <dimen name="unit_badge_size">10sp</dimen>
+</resources>

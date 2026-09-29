@@ -20,6 +20,18 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 public class MainActivity extends AppCompatActivity {
     private static final String CHAVE_ABA = "aba_selecionada";
     private int abaSelecionada = R.id.nav_inicio;
+    private long unidadeParaAbrir = MapaFragment.TODAS_UNIDADES;
+
+    /* Seleciona a aba Mapa com a unidade solicitada pela lista, sem abrir outro app. */
+    public void abrirUnidadeNoMapa(long unidadeId) {
+        unidadeParaAbrir = unidadeId;
+        BottomNavigationView navegacao = findViewById(R.id.bottom_navigation);
+        if (navegacao.getSelectedItemId() == R.id.nav_mapa) {
+            abrirAba(R.id.nav_mapa);
+        } else {
+            navegacao.setSelectedItemId(R.id.nav_mapa);
+        }
+    }
 
     /* Inicializa o XML e restaura a aba sem duplicar o Fragment recriado pelo Android. */
     @Override
@@ -53,7 +65,8 @@ public class MainActivity extends AppCompatActivity {
                 .setAppearanceLightNavigationBars(modoClaro);
         ViewCompat.setOnApplyWindowInsetsListener(raiz, (view, windowInsets) -> {
             Insets margens = windowInsets.getInsets(
-                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
+                            | WindowInsetsCompat.Type.ime());
             view.setPadding(margens.left, margens.top, margens.right, margens.bottom);
             return WindowInsetsCompat.CONSUMED;
         });
@@ -68,7 +81,8 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.nav_unidades) {
             fragment = new UnidadesFragment();
         } else if (id == R.id.nav_mapa) {
-            fragment = new MapaFragment();
+            fragment = MapaFragment.novaInstancia(unidadeParaAbrir);
+            unidadeParaAbrir = MapaFragment.TODAS_UNIDADES;
         } else if (id == R.id.nav_socorros) {
             fragment = new SocorrosFragment();
         } else if (id == R.id.nav_sobre) {

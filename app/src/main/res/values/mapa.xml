@@ -1,0 +1,22 @@
+<resources>
+    <string name="map_title">Mapa de unidades</string>
+    <string name="map_select_label">Unidade em destaque</string>
+    <string name="map_all_units">Todas as unidades</string>
+    <string name="map_my_location">Minha localização</string>
+    <string name="map_loading">Carregando mapa…</string>
+    <string name="map_unavailable">O mapa está indisponível no momento. Você pode consultar as unidades pelo seletor acima.</string>
+    <string name="map_attribution">© OpenStreetMap contributors · MapLibre</string>
+    <string name="map_credit_unavailable">Créditos: OpenStreetMap contributors. Licença em openstreetmap.org/copyright.</string>
+    <color name="map_unit_color">#008C95</color>
+    <color name="map_selected_color">#D93830</color>
+    <color name="map_user_color">#2668D7</color>
+    <color name="map_point_outline">#FFFFFF</color>
+    <dimen name="map_hit_radius">16dp</dimen>
+    <string name="map_explore_hint">Toque nos marcadores ou escolha uma unidade acima. Use Todas as unidades para ver o conjunto.</string>
+    <string name="map_no_units">Nenhuma unidade cadastrada para mostrar no mapa.</string>
+    <string name="map_unit_details">%1$s\n%2$s</string>
+    <string name="map_location_denied">Localização não autorizada. Você ainda pode consultar todas as unidades no mapa.</string>
+    <string name="map_location_unavailable">Não foi possível obter sua localização. Verifique a localização do aparelho e tente novamente.</string>
+    <dimen name="map_bounds_padding">40dp</dimen>
+    <dimen name="map_details_max_height">132dp</dimen>
+</resources>

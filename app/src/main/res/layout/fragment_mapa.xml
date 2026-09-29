@@ -1,13 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="@dimen/screen_padding">
-        <TextView android:id="@+id/text_title" style="@style/CardTitle" android:text="@string/mapa_title" android:textSize="@dimen/title_size" />
-
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="@dimen/map_preview_height" android:layout_marginTop="@dimen/spacing_medium" android:padding="@dimen/spacing_large" android:background="@drawable/bg_surface" android:orientation="vertical" android:gravity="center">
-            <ImageView android:layout_width="@dimen/icon_box" android:layout_height="@dimen/icon_box" android:src="@drawable/ic_map" android:importantForAccessibility="no" android:padding="@dimen/spacing_small" android:background="@drawable/bg_icon"  />
-            <TextView android:id="@+id/text_description" style="@style/CardCaption" android:text="@string/map_pending" android:textSize="@dimen/body_size" android:gravity="center" android:layout_marginTop="@dimen/spacing_medium" />
-        </LinearLayout>
-
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="@dimen/screen_padding">
+    <TextView style="@style/CardTitle" android:text="@string/map_title"
+        android:textSize="@dimen/title_size" />
+    <TextView style="@style/CardCaption" android:text="@string/map_select_label"
+        android:labelFor="@id/map_unit_selector" android:layout_marginTop="@dimen/spacing_small" />
+    <Spinner android:id="@+id/map_unit_selector"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:minHeight="@dimen/unit_touch_target"
+        android:background="@drawable/bg_surface" android:spinnerMode="dialog"
+        android:prompt="@string/map_select_label" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button android:id="@+id/map_show_all"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="@string/map_all_units"
+            android:textAllCaps="false" android:textSize="@dimen/caption_size" />
+        <Button android:id="@+id/map_my_location"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:layout_marginStart="@dimen/spacing_small"
+            android:text="@string/map_my_location" android:textAllCaps="false"
+            android:textSize="@dimen/caption_size" />
     </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+    <TextView android:id="@+id/map_status" style="@style/CardCaption"
+        android:text="@string/map_loading" android:accessibilityLiveRegion="polite"
+        android:layout_marginBottom="@dimen/spacing_small" />
+    <org.maplibre.android.maps.MapView android:id="@+id/map_container"
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:background="@drawable/bg_surface" />
+    <TextView android:id="@+id/map_attribution" style="@style/CardCaption"
+        android:text="@string/map_attribution" android:padding="@dimen/spacing_small"
+        android:minHeight="@dimen/unit_touch_target" android:gravity="center_vertical"
+        android:background="@color/surface" android:clickable="true" android:focusable="true" />
+    <androidx.core.widget.NestedScrollView android:id="@+id/map_selected_card"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/spacing_small" android:visibility="gone"
+        android:background="@drawable/bg_surface">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="@dimen/card_padding">
+            <TextView android:id="@+id/map_selected_name" style="@style/CardTitle"
+                android:textSize="@dimen/body_size" />
+            <TextView android:id="@+id/map_selected_details" style="@style/CardCaption"
+                android:layout_marginTop="@dimen/unit_small_spacing" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

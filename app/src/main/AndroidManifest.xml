@@ -12,7 +12,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SaudeFacil">
-        <!-- As outras Activities e a configuração do Maps entrarão nas suas etapas. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
